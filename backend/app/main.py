@@ -18,13 +18,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Auto-crear tablas al iniciar (para Docker con BD nueva)
+# Auto-crear tablas + migrar columnas encriptadas a TEXT
 @app.on_event("startup")
 def on_startup():
     from app.db.base_class import Base
     from app.db.session import engine
+    from sqlalchemy import text
     import app.models  # Importar todos los modelos para que Base los conozca
     Base.metadata.create_all(bind=engine)
+
+    # Migrar columnas encriptadas de VARCHAR → TEXT
+    encrypted_columns = [
+        ("cuentas", "nombre"),
+        ("transacciones", "descripcion"),
+        ("transacciones", "texto_original"),
+        ("movimientos_recurrentes", "nombre"),
+        ("prestamos", "entidad"),
+        ("prestamos", "descripcion"),
+        ("metas_ahorro", "nombre"),
+    ]
+    with engine.connect() as conn:
+        for table, col in encrypted_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ALTER COLUMN {col} TYPE TEXT"))
+                conn.commit()
+            except Exception:
+                conn.rollback()  # Column might already be TEXT
+    print("✅ Columnas encriptadas migradas a TEXT")
 
 # Manejador global de errores para que CORS no se pierda en errores 500
 @app.exception_handler(Exception)

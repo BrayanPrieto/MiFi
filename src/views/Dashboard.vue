@@ -280,29 +280,58 @@ const sendAiMessage = async () => {
   }
 };
 const isListening = ref(false);
-let recognition: any = null;
+let mediaRecorder: MediaRecorder | null = null;
+let audioChunks: Blob[] = [];
 
-const toggleVoice = () => {
-  const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-  if (!SR) {
-    chatMessages.value.push({ role: 'assistant', content: '⚠️ Tu navegador no soporta reconocimiento de voz. Usa Chrome.' });
+const toggleVoice = async () => {
+  // Si ya está grabando, detener
+  if (isListening.value && mediaRecorder) {
+    mediaRecorder.stop();
     return;
   }
-  if (isListening.value && recognition) {
-    recognition.stop();
-    isListening.value = false;
-    return;
+
+  // Pedir permiso de micrófono
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      isListening.value = false;
+      stream.getTracks().forEach(t => t.stop()); // Liberar micrófono
+
+      if (audioChunks.length === 0) return;
+
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
+
+      try {
+        chatMessages.value.push({ role: 'assistant', content: '🎤 Transcribiendo audio...' });
+        scrollChat();
+        const res = await apiClient.post('/ia/transcribe', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        chatMessages.value.pop(); // Quitar "Transcribiendo..."
+        if (res.data.text) {
+          aiPrompt.value = res.data.text;
+        }
+      } catch {
+        chatMessages.value.pop();
+        chatMessages.value.push({ role: 'assistant', content: '⚠️ Error al transcribir. Intenta de nuevo.' });
+        scrollChat();
+      }
+    };
+
+    mediaRecorder.start();
+    isListening.value = true;
+  } catch (err) {
+    chatMessages.value.push({ role: 'assistant', content: '⚠️ No se pudo acceder al micrófono. Verifica permisos.' });
+    scrollChat();
   }
-  recognition = new SR();
-  recognition.lang = 'es-CO';
-  recognition.interimResults = false;
-  recognition.onresult = (e: any) => {
-    aiPrompt.value = e.results[0][0].transcript;
-    isListening.value = false;
-  };
-  recognition.onerror = () => { isListening.value = false; };
-  recognition.onend = () => { isListening.value = false; };
-  recognition.start();
-  isListening.value = true;
 };
 </script>
