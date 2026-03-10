@@ -70,3 +70,32 @@ def deactivate_cuenta(
     db.commit()
     return {"ok": True, "message": "Cuenta desactivada"}
 
+
+@router.put("/{cuenta_id}", response_model=CuentaSchema)
+def update_cuenta(
+    cuenta_id: str,
+    *,
+    db: Session = Depends(deps.get_db),
+    cuenta_in: CuentaUpdate,
+    current_user: Usuario = Depends(deps.get_current_user)
+) -> Any:
+    """Editar una cuenta."""
+    cuenta = db.query(Cuenta).filter(Cuenta.id == cuenta_id, Cuenta.usuario_id == current_user.id).first()
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
+
+    update_data = cuenta_in.model_dump(exclude_unset=True)
+
+    # Enforce 1 sola nómina
+    if update_data.get("es_nomina"):
+        db.query(Cuenta).filter(
+            Cuenta.usuario_id == current_user.id,
+            Cuenta.es_nomina == True,
+            Cuenta.id != cuenta_id,
+        ).update({"es_nomina": False})
+
+    for field, value in update_data.items():
+        setattr(cuenta, field, value)
+    db.commit()
+    db.refresh(cuenta)
+    return cuenta

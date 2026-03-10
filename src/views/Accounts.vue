@@ -23,7 +23,10 @@
               </p>
             </div>
           </div>
-          <Button icon="pi pi-times" text rounded severity="secondary" @click="confirmDeactivate(account)" title="Desactivar" />
+          <div class="flex items-center gap-1">
+            <Button icon="pi pi-pencil" text rounded severity="secondary" @click="openEdit(account)" title="Editar" />
+            <Button icon="pi pi-times" text rounded severity="secondary" @click="confirmDeactivate(account)" title="Desactivar" />
+          </div>
         </div>
 
         <p class="text-2xl font-bold m-0" :class="Number(account.saldo) >= 0 ? 'text-mifi-green' : 'text-mifi-red'">
@@ -95,6 +98,32 @@
         <Button label="Sí, desactivar" severity="danger" @click="deactivateAccount" />
       </template>
     </Dialog>
+
+    <!-- Edit Dialog -->
+    <Dialog v-model:visible="showEdit" header="Editar Cuenta" :modal="true" :style="{ width: '420px' }">
+      <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-2">
+          <label class="font-medium text-sm text-mifi-navy">Nombre</label>
+          <InputText v-model="editForm.nombre" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="font-medium text-sm text-mifi-navy">Tipo de cuenta</label>
+          <Select v-model="editForm.tipo" :options="tipoOptions" optionLabel="label" optionValue="value" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="font-medium text-sm text-mifi-navy">{{ editForm.tipo === 'TARJETA_CREDITO' ? 'Cupo total' : 'Saldo' }}</label>
+          <InputNumber v-model="editForm.saldo" mode="currency" currency="COP" locale="es-CO" />
+        </div>
+        <div class="flex items-center gap-3" v-if="editForm.tipo !== 'TARJETA_CREDITO'">
+          <input type="checkbox" id="editNomina" v-model="editForm.es_nomina" class="w-4 h-4 accent-mifi-cyan" />
+          <label for="editNomina" class="text-sm text-mifi-navy">¿Es tu cuenta de nómina?</label>
+        </div>
+      </div>
+      <template #footer>
+        <Button label="Cancelar" text @click="showEdit = false" />
+        <Button label="Guardar" icon="pi pi-check" @click="saveEdit" class="!bg-mifi-cyan !border-none !text-white" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -110,8 +139,11 @@ import Select from 'primevue/select';
 const accounts = ref<any[]>([]);
 const showCreate = ref(false);
 const showConfirm = ref(false);
+const showEdit = ref(false);
 const accountToDelete = ref<any>(null);
+const editingAccount = ref<any>(null);
 const form = ref({ nombre: '', tipo: 'CUENTA_AHORROS', saldo_inicial: 0, cupo_total: null as number | null, es_nomina: false });
+const editForm = ref({ nombre: '', tipo: 'CUENTA_AHORROS', saldo: 0, cupo_total: null as number | null, es_nomina: false });
 
 const tipoOptions = [
     { label: 'Cuenta de Ahorros', value: 'CUENTA_AHORROS' },
@@ -184,6 +216,32 @@ const deactivateAccount = async () => {
     await apiClient.delete(`/cuentas/${accountToDelete.value.id}`);
     showConfirm.value = false;
     accountToDelete.value = null;
+    await fetchAccounts();
+  } catch { /* empty */ }
+};
+
+const openEdit = (account: any) => {
+  editingAccount.value = account;
+  editForm.value = {
+    nombre: account.nombre,
+    tipo: account.tipo,
+    saldo: Number(account.saldo),
+    cupo_total: account.cupo_total ? Number(account.cupo_total) : null,
+    es_nomina: account.es_nomina,
+  };
+  showEdit.value = true;
+};
+
+const saveEdit = async () => {
+  if (!editingAccount.value) return;
+  try {
+    const payload: any = { ...editForm.value };
+    if (editForm.value.tipo === 'TARJETA_CREDITO') {
+      payload.cupo_total = editForm.value.saldo;
+    }
+    await apiClient.put(`/cuentas/${editingAccount.value.id}`, payload);
+    showEdit.value = false;
+    editingAccount.value = null;
     await fetchAccounts();
   } catch { /* empty */ }
 };

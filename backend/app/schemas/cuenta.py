@@ -20,9 +20,12 @@ class CuentaCreate(CuentaBase):
 class CuentaUpdate(BaseModel):
     nombre: Optional[str] = None
     tipo: Optional[TipoCuenta] = None
+    saldo: Optional[Decimal] = None
+    cupo_total: Optional[Decimal] = None
     color: Optional[str] = None
     icono: Optional[str] = None
     es_principal: Optional[bool] = None
+    es_nomina: Optional[bool] = None
     activa: Optional[bool] = None
 
 class Cuenta(CuentaBase):

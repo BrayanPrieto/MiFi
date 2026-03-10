@@ -104,13 +104,13 @@ def get_default_account(cuentas: list):
 
 
 def find_or_create_category(db: Session, user_id, nombre: str, tipo: str):
-    """Find existing category or create a new one."""
-    existing = db.query(Categoria).filter(
-        Categoria.usuario_id == user_id,
-        Categoria.nombre.ilike(f"%{nombre}%"),
-    ).first()
-    if existing:
-        return existing
+    """Find existing category or create. Compares decrypted names in Python (encrypted DB)."""
+    all_cats = db.query(Categoria).filter(Categoria.usuario_id == user_id).all()
+    nombre_lower = nombre.lower().strip()
+    for cat in all_cats:
+        cat_name = (cat.nombre or "").lower().strip()
+        if cat_name == nombre_lower or nombre_lower in cat_name or cat_name in nombre_lower:
+            return cat
     cat = Categoria(usuario_id=user_id, nombre=nombre, tipo=tipo)
     db.add(cat)
     return cat
@@ -197,16 +197,49 @@ def _get_amount(ia_amount, extracted_montos: List[float], index: int = 0) -> flo
     return 0
 
 
+def _resolve_amount_from_recurrents(db, user_id, description: str) -> float:
+    """If no amount given, try to find a matching recurrent and use its amount."""
+    if not description:
+        return 0
+    keywords = description.lower().split()
+    recurrents = db.query(MovimientoRecurrente).filter(
+        MovimientoRecurrente.usuario_id == user_id,
+        MovimientoRecurrente.activo == True,
+    ).all()
+    for rec in recurrents:
+        rec_name = (rec.nombre or "").lower()
+        for kw in keywords:
+            if len(kw) > 2 and kw in rec_name:
+                return float(rec.monto)
+    return 0
+
+
 def _process_transaccion(parsed, montos, cuentas, db, user, original_text, reply):
     items = parsed.get("data", [])
     if not items and parsed.get("monto"):
         items = [parsed]
 
+    if not items:
+        return {"reply": reply, "saved": False}
+
     saved = 0
+    pending_items = []  # Items without amount (need user input)
+
     for i, item in enumerate(items):
         amount = _get_amount(item.get("monto"), montos, i)
+
+        # Fallback: resolve from recurrents if no amount found
+        if amount <= 0:
+            desc = item.get("descripcion", original_text)
+            resolved = _resolve_amount_from_recurrents(db, user.id, desc)
+            if resolved > 0:
+                amount = resolved
+                reply = reply.rstrip('.') + f" (monto tomado de tus recurrentes: ${int(amount):,})."
+
         if amount <= 0 or not validate_amount(amount):
+            pending_items.append(item.get("descripcion", "item"))
             continue
+
         target = find_account_by_name(cuentas, item.get("cuenta_nombre", ""))
         if not target and cuentas:
             target = get_default_account(cuentas)
@@ -223,10 +256,18 @@ def _process_transaccion(parsed, montos, cuentas, db, user, original_text, reply
             )
             db.add(txn)
             saved += 1
+
     if saved:
         db.commit()
-        return {"reply": reply, "saved": True, "saved_count": saved}
-    return {"reply": "⚠️ No pude identificar un monto válido.", "saved": False}
+        msg = reply
+        if pending_items:
+            msg += f"\n⚠️ No pude registrar: {', '.join(pending_items)} — dime el monto para completar."
+        return {"reply": msg, "saved": True, "saved_count": saved}
+
+    if pending_items:
+        names = ", ".join(pending_items)
+        return {"reply": f"Entendido, quieres registrar: {names}. ¿Cuánto fue?", "saved": False}
+    return {"reply": reply or "⚠️ No pude identificar transacciones.", "saved": False}
 
 
 def _process_recurrente(parsed, montos, cuentas, db, user, original_text, reply):

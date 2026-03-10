@@ -154,7 +154,7 @@
           <div v-for="r in data.recurrentes" :key="r.id" class="flex items-center justify-between py-2 border-b border-mifi-navy/5 last:border-0">
             <div class="flex items-center gap-2">
               <i :class="r.pagado ? 'pi pi-check-circle text-mifi-green' : 'pi pi-clock text-amber-500'" class="text-xs"></i>
-              <span class="text-xs text-mifi-navy truncate max-w-[120px]">{{ r.nombre }}</span>
+              <span class="text-xs text-mifi-navy">{{ r.nombre }}</span>
             </div>
             <span class="text-xs font-bold" :class="r.tipo === 'INGRESO' ? 'text-mifi-green' : 'text-mifi-red'">{{ r.tipo === 'INGRESO' ? '+' : '-' }}${{ Number(r.monto).toLocaleString('es-CO') }}</span>
           </div>
@@ -169,7 +169,7 @@
         </div>
         <div class="max-h-[250px] overflow-y-auto">
           <div v-for="c in data.cuentas" :key="c.id" class="flex items-center justify-between py-2 border-b border-mifi-navy/5 last:border-0">
-            <span class="text-xs text-mifi-navy truncate max-w-[120px]">{{ c.nombre }}</span>
+            <span class="text-xs text-mifi-navy">{{ c.nombre }}</span>
             <span class="text-xs font-bold" :class="c.saldo >= 0 ? 'text-mifi-green' : 'text-mifi-red'">${{ Number(c.saldo).toLocaleString('es-CO') }}</span>
           </div>
           <div v-if="data.cuentas.length === 0" class="text-center py-3 text-mifi-navy/30 text-xs">Sin cuentas</div>
@@ -187,7 +187,7 @@
           <div v-for="t in (data.ultimas_transacciones || [])" :key="t.id" class="flex items-center justify-between py-2 border-b border-mifi-navy/5 last:border-0">
             <div class="flex items-center gap-2">
               <i :class="t.tipo === 'INGRESO' ? 'pi pi-arrow-up text-mifi-green' : 'pi pi-arrow-down text-mifi-red'" class="text-xs"></i>
-              <span class="text-xs text-mifi-navy truncate max-w-[120px]">{{ t.descripcion || 'Sin descripción' }}</span>
+              <span class="text-xs text-mifi-navy">{{ t.descripcion || 'Sin descripción' }}</span>
             </div>
             <span class="text-xs font-bold" :class="t.tipo === 'INGRESO' ? 'text-mifi-green' : 'text-mifi-red'">{{ t.tipo === 'INGRESO' ? '+' : '-' }}${{ Number(t.monto).toLocaleString('es-CO') }}</span>
           </div>
@@ -319,6 +319,8 @@ const toggleVoice = async () => {
         chatMessages.value.pop(); // Quitar "Transcribiendo..."
         if (res.data.text) {
           aiPrompt.value = res.data.text;
+          // Auto-send: enviar el mensaje transcrito automáticamente
+          await sendAiMessage();
         }
       } catch {
         chatMessages.value.pop();

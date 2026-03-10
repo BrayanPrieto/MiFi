@@ -68,18 +68,21 @@ def resumen_mensual(
                 "porcentaje_usado": round((consumido / cupo_total) * 100, 1) if cupo_total > 0 else 0,
             })
 
-    # Recurrentes: cuáles ya se pagaron este mes (matching flexible)
+    # Recurrentes: cuáles ya se pagaron este mes (matching estricto por nombre)
     recurrentes_status = []
     for rec in recurrentes:
-        rec_name = rec.nombre.lower().strip()
+        rec_name = (rec.nombre or "").lower().strip()
         rec_monto = float(rec.monto)
-        # Match by name (contains) OR by amount+same type
-        pagado = any(
-            (rec_name in (t.descripcion or "").lower().strip()
-             or (t.descripcion or "").lower().strip() in rec_name
-             or (float(t.monto) == rec_monto and t.tipo.value == rec.tipo))
-            for t in txns
-        )
+        # Match ONLY by name similarity (not just by amount)
+        pagado = False
+        for t in txns:
+            t_desc = (t.descripcion or "").lower().strip()
+            # Name must match (contains in either direction)
+            name_match = (rec_name and t_desc and
+                         (rec_name in t_desc or t_desc in rec_name))
+            if name_match:
+                pagado = True
+                break
         recurrentes_status.append({
             "id": str(rec.id),
             "nombre": rec.nombre,
