@@ -1,0 +1,64 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: mifi_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: mifi
+    ports:
+      - "5432:5432"
+    volumes:
+      - mifi_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    container_name: mifi_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - mifi_redisdata:/data
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: mifi_ollama
+    volumes:
+      - mifi_ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mifi_backend
+    environment:
+      - DATABASE_URL=postgresql://postgres:root@db:5432/mifi
+      - OLLAMA_HOST=http://ollama:11434
+      - SECRET_KEY=mifi-super-secret-key-change-in-production-2024
+      - ENCRYPTION_KEY=Kzar2y-b0r9C8JJrkKrWOkaI6zkQsxdYVdTqsJMjOuw=
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+      - ollama
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mifi_frontend
+    ports:
+      - "8080:80"
+      - "8443:443"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mifi_pgdata:
+  mifi_redisdata:
+  mifi_ollama_data:
