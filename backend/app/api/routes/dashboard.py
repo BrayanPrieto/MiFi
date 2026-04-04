@@ -57,8 +57,8 @@ def resumen_mensual(
     for c in cuentas:
         if c.tipo.value == "TARJETA_CREDITO" and c.cupo_total:
             cupo_total = float(c.cupo_total)
-            cupo_disponible = float(c.saldo)
-            consumido = cupo_total - cupo_disponible
+            consumido = float(c.saldo)
+            cupo_disponible = cupo_total - consumido
             tarjetas.append({
                 "id": str(c.id),
                 "nombre": c.nombre,

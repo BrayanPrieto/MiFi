@@ -20,11 +20,11 @@ from app.models.movimiento_recurrente import MovimientoRecurrente
 from app.models.meta_ahorro import MetaAhorro
 from app.models.prestamo import Prestamo
 
-from .number_parser import parse_colombian_numbers, validate_amount
+from app.core.config import settings
 from .prompts import get_system_prompt
 
 OLLAMA_URL = "http://ollama:11434/api/generate"
-MODEL = "llama3"
+MODEL = settings.OLLAMA_MODEL
 
 
 def build_user_context(db: Session, user_id) -> str:
@@ -44,7 +44,7 @@ def build_user_context(db: Session, user_id) -> str:
         Transaccion.usuario_id == user_id,
         extract('month', Transaccion.fecha) == mes,
         extract('year', Transaccion.fecha) == anio,
-    ).all()
+    ).order_by(Transaccion.fecha.desc(), Transaccion.created_at.desc()).all()
 
     parts = []
 
@@ -74,6 +74,14 @@ def build_user_context(db: Session, user_id) -> str:
     ingresos = sum(float(t.monto) for t in txns_mes if t.tipo.value == "INGRESO")
     gastos = sum(float(t.monto) for t in txns_mes if t.tipo.value != "INGRESO")
     parts.append(f"Mes actual: Ingresos ${ingresos:,.0f}, Gastos ${gastos:,.0f}, Balance ${ingresos - gastos:,.0f}")
+    
+    ultimas_txns = txns_mes[:10]  # Take the 10 most recent
+    if ultimas_txns:
+        parts.append("Últimas 10 transacciones (con ID para borrar/editar):")
+        for t in ultimas_txns:
+            monto_fmt = f"${float(t.monto):,.0f}"
+            signo = "+" if t.tipo.value == "INGRESO" else "-"
+            parts.append(f"  - [{t.id}] {t.fecha} | {t.descripcion}: {signo}{monto_fmt}")
 
     return "\n".join(parts) if parts else "Sin datos aún."
 
@@ -116,6 +124,8 @@ def find_or_create_category(db: Session, user_id, nombre: str, tipo: str):
     return cat
 
 
+import re
+
 def build_chat_prompt(text: str) -> str:
     """Build prompt with ONLY the current user message. No chat history to LLM."""
     return f"Usuario: {text}"
@@ -136,7 +146,14 @@ async def call_ollama(prompt: str, system: str) -> dict:
             }
         )
         result = response.json()
-        return json.loads(result.get("response", "{}"))
+        if "error" in result:
+            raise Exception(f"Ollama error: {result['error']}")
+            
+        raw_response = result.get("response", "{}")
+        # Remove <think>...</think> tags and their contents commonly found in deepseek reasoning models
+        clean_response = re.sub(r'<think>.*?</think>', '', raw_response, flags=re.DOTALL).strip()
+        
+        return json.loads(clean_response)
 
 
 async def process_ia_request(
@@ -147,13 +164,11 @@ async def process_ia_request(
     current_user,
 ) -> Dict[str, Any]:
     """Main IA processing pipeline."""
-    # 1. Normalize numbers in the user text
-    normalized_text, extracted_montos = parse_colombian_numbers(text)
-
-    # 2. Build context and prompt (NO chat history — only financial context in system prompt)
+    # 1. Build context and prompt (NO chat history — only financial context in system prompt)
     user_context = build_user_context(db, current_user.id)
-    system_prompt = get_system_prompt(mode, user_context)
-    chat_prompt = build_chat_prompt(normalized_text)
+    # FORZAMOS USAR EL PROMPT UNIFICADO que decide qué acción hacer
+    system_prompt = get_system_prompt("unificado", user_context)
+    chat_prompt = build_chat_prompt(text)
 
     try:
         # 3. Call LLM
@@ -166,35 +181,31 @@ async def process_ia_request(
         return {"reply": f"Error: {str(e)}", "saved": False}
 
     reply = parsed.get("reply", "Procesado.")
+    action = parsed.get("action", "general")
 
     cuentas = db.query(Cuenta).filter(
         Cuenta.usuario_id == current_user.id, Cuenta.activa == True
     ).all()
 
-    # 4. Process by mode
-    if mode == "transaccion":
-        return _process_transaccion(parsed, extracted_montos, cuentas, db, current_user, text, reply)
-    elif mode == "recurrente":
-        return _process_recurrente(parsed, extracted_montos, cuentas, db, current_user, text, reply)
-    elif mode == "prestamo":
-        return _process_prestamo(parsed, extracted_montos, cuentas, db, current_user, reply)
-    elif mode == "meta":
-        return _process_meta(parsed, extracted_montos, db, current_user, reply)
-    elif mode == "categoria":
+    # 4. Process by action returned by the unified prompt
+    if action == "transaccion":
+        return _process_transaccion(parsed, cuentas, db, current_user, text, reply)
+    elif action == "recurrente":
+        return _process_recurrente(parsed, cuentas, db, current_user, text, reply)
+    elif action == "prestamo":
+        return _process_prestamo(parsed, cuentas, db, current_user, reply)
+    elif action == "meta":
+        return _process_meta(parsed, db, current_user, reply)
+    elif action == "categoria":
         return _process_categoria(parsed, db, current_user, reply)
+    elif action == "delete_transaccion":
+        return _process_delete_transaccion(parsed, db, current_user, reply)
+    elif action == "update_transaccion":
+        return _process_update_transaccion(parsed, db, current_user, reply)
+    elif action == "cuenta":
+        return _process_cuenta(parsed, db, current_user, reply)
     else:
         return {"reply": reply, "saved": False}
-
-
-def _get_amount(ia_amount, extracted_montos: List[float], index: int = 0) -> float:
-    """Get amount: prefer extracted regex amount, fallback to IA amount."""
-    if extracted_montos and index < len(extracted_montos):
-        return extracted_montos[index]
-    if ia_amount:
-        val = abs(float(ia_amount))
-        if validate_amount(val):
-            return val
-    return 0
 
 
 def _resolve_amount_from_recurrents(db, user_id, description: str) -> float:
@@ -214,7 +225,7 @@ def _resolve_amount_from_recurrents(db, user_id, description: str) -> float:
     return 0
 
 
-def _process_transaccion(parsed, montos, cuentas, db, user, original_text, reply):
+def _process_transaccion(parsed, cuentas, db, user, original_text, reply):
     items = parsed.get("data", [])
     if not items and parsed.get("monto"):
         items = [parsed]
@@ -226,7 +237,10 @@ def _process_transaccion(parsed, montos, cuentas, db, user, original_text, reply
     pending_items = []  # Items without amount (need user input)
 
     for i, item in enumerate(items):
-        amount = _get_amount(item.get("monto"), montos, i)
+        try:
+            amount = abs(float(item.get("monto", 0) or 0))
+        except (ValueError, TypeError):
+            amount = 0
 
         # Fallback: resolve from recurrents if no amount found
         if amount <= 0:
@@ -234,9 +248,9 @@ def _process_transaccion(parsed, montos, cuentas, db, user, original_text, reply
             resolved = _resolve_amount_from_recurrents(db, user.id, desc)
             if resolved > 0:
                 amount = resolved
-                reply = reply.rstrip('.') + f" (monto tomado de tus recurrentes: ${int(amount):,})."
+                reply = reply.rstrip('.') + f" (monto tomado de recurrentes: ${int(amount):,})."
 
-        if amount <= 0 or not validate_amount(amount):
+        if amount <= 0:
             pending_items.append(item.get("descripcion", "item"))
             continue
 
@@ -270,7 +284,7 @@ def _process_transaccion(parsed, montos, cuentas, db, user, original_text, reply
     return {"reply": reply or "⚠️ No pude identificar transacciones.", "saved": False}
 
 
-def _process_recurrente(parsed, montos, cuentas, db, user, original_text, reply):
+def _process_recurrente(parsed, cuentas, db, user, original_text, reply):
     # Support array of items (multiple recurrents)
     items = parsed.get("data", [])
     if not items and parsed.get("monto"):
@@ -281,7 +295,11 @@ def _process_recurrente(parsed, montos, cuentas, db, user, original_text, reply)
 
     saved = 0
     for i, item in enumerate(items):
-        amount = _get_amount(item.get("monto"), montos, i)
+        try:
+            amount = abs(float(item.get("monto", 0) or 0))
+        except (ValueError, TypeError):
+            amount = 0
+            
         if amount <= 0:
             continue
         target = find_account_by_name(cuentas, item.get("cuenta_nombre", ""))
@@ -308,21 +326,31 @@ def _process_recurrente(parsed, montos, cuentas, db, user, original_text, reply)
     return {"reply": "⚠️ No tienes cuentas activas.", "saved": False}
 
 
-def _process_prestamo(parsed, montos, cuentas, db, user, reply):
+def _process_prestamo(parsed, cuentas, db, user, reply):
     # Extract from data array (v2 prompts)
-    data_arr = parsed.get("data", [])
-    item = data_arr[0] if data_arr else parsed
+    data_obj = parsed.get("data", [])
+    if isinstance(data_obj, dict):
+        data_obj = [data_obj]
+    item = data_obj[0] if (isinstance(data_obj, list) and len(data_obj) > 0) else parsed
 
-    saldo = _get_amount(item.get("saldo_pendiente"), montos, 0)
+    try:
+        saldo = abs(float(item.get("saldo_pendiente", 0) or 0))
+        monto_total = abs(float(item.get("monto_total", 0) or 0)) or saldo
+        cuota = abs(float(item.get("cuota_mensual", 0) or 0))
+    except (ValueError, TypeError):
+        return {"reply": "Error leyendo los valores numéricos del préstamo.", "saved": False}
+        
     if saldo <= 0:
         return {"reply": reply, "saved": False}
-    monto_total = _get_amount(item.get("monto_total"), montos, 1) or saldo
-    cuota = _get_amount(item.get("cuota_mensual"), montos, 2) if len(montos) > 2 else abs(float(item.get("cuota_mensual", 0) or 0))
+
+    tipo_str = str(item.get("tipo", "BANCO")).upper()
+    if tipo_str not in ["BANCO", "TERCERO"]:
+        tipo_str = "BANCO" # Safe fallback to avoid DB parsing errors
 
     p = Prestamo(
         usuario_id=user.id,
         entidad=item.get("entidad", "Préstamo"),
-        tipo=item.get("tipo", "BANCO"),
+        tipo=tipo_str,
         monto_total=monto_total,
         saldo_pendiente=saldo,
         cuota_mensual_esperada=cuota,
@@ -332,6 +360,19 @@ def _process_prestamo(parsed, montos, cuentas, db, user, reply):
     db.add(p)
 
     target = find_account_by_name(cuentas, item.get("cuenta_nombre", ""))
+    
+    # 🌟 NEW LOGIC: Tie this debt tightly to a Credit Card if names match
+    matching_cc = next((c for c in cuentas if c.tipo.value == "TARJETA_CREDITO" and 
+                        (p.entidad.lower() in c.nombre.lower() or c.nombre.lower() in p.entidad.lower())), None)
+    
+    if matching_cc:
+        # For a credit card, 'saldo' represents the consumed debt. We increase it.
+        matching_cc.saldo = float(matching_cc.saldo) + saldo
+        reply += f"\n💳 Vinculé esta deuda a tu tarjeta de crédito '{matching_cc.nombre}' y actualicé su cupo consumido."
+        # If no specific target account was given for the recurrent payment, use the CC
+        if not target and cuota > 0:
+            target = matching_cc
+
     if not target:
         target = get_default_account(cuentas)
     if cuota > 0 and target:
@@ -348,11 +389,17 @@ def _process_prestamo(parsed, montos, cuentas, db, user, reply):
     return {"reply": reply, "saved": True, "action": "prestamo"}
 
 
-def _process_meta(parsed, montos, db, user, reply):
-    data_arr = parsed.get("data", [])
-    item = data_arr[0] if data_arr else parsed
+def _process_meta(parsed, db, user, reply):
+    data_obj = parsed.get("data", [])
+    if isinstance(data_obj, dict):
+        data_obj = [data_obj]
+    item = data_obj[0] if (isinstance(data_obj, list) and len(data_obj) > 0) else parsed
 
-    amount = _get_amount(item.get("monto_objetivo"), montos)
+    try:
+        amount = abs(float(item.get("monto_objetivo", 0) or 0))
+    except (ValueError, TypeError):
+        amount = 0
+        
     if amount <= 0:
         return {"reply": reply, "saved": False}
     meta = MetaAhorro(
@@ -368,8 +415,10 @@ def _process_meta(parsed, montos, db, user, reply):
 
 
 def _process_categoria(parsed, db, user, reply):
-    data_arr = parsed.get("data", [])
-    item = data_arr[0] if data_arr else parsed
+    data_obj = parsed.get("data", [])
+    if isinstance(data_obj, dict):
+        data_obj = [data_obj]
+    item = data_obj[0] if (isinstance(data_obj, list) and len(data_obj) > 0) else parsed
 
     if not item.get("nombre"):
         return {"reply": reply, "saved": False}
@@ -377,3 +426,87 @@ def _process_categoria(parsed, db, user, reply):
     db.commit()
     return {"reply": reply, "saved": True, "action": "categoria"}
 
+
+def _process_delete_transaccion(parsed, db, user, reply):
+    data_arr = parsed.get("data", [])
+    item = data_arr[0] if data_arr else parsed
+    txn_id = item.get("id")
+    if not txn_id:
+        return {"reply": "No encontré el ID de la transacción para borrar.", "saved": False}
+        
+    txn = db.query(Transaccion).filter(Transaccion.id == txn_id, Transaccion.usuario_id == user.id).first()
+    if not txn:
+        return {"reply": "Esa transacción no existe o ya fue borrada.", "saved": False}
+        
+    db.delete(txn)
+    db.commit()
+    return {"reply": reply, "saved": True, "action": "delete_transaccion"}
+
+
+def _process_update_transaccion(parsed, db, user, reply):
+    # Retrieve the target ID from parsed data payload.
+    data_obj = parsed.get("data", [])
+    if isinstance(data_obj, dict):
+        data_obj = [data_obj]
+    item = data_obj[0] if (isinstance(data_obj, list) and len(data_obj) > 0) else parsed
+    
+    txn_id_str = item.get("id")
+    if not txn_id_str:
+        return {"reply": "❌ No pude identificar qué transacción editar.", "saved": False}
+        
+    try:
+        txn = db.query(Transaccion).filter_by(id=txn_id_str, usuario_id=user.id).first()
+        if not txn:
+            return {"reply": "❌ No encontré esa transacción para editarla.", "saved": False}
+            
+        monto_nuevo = item.get("monto")
+        desc_nueva = item.get("descripcion")
+        
+        if monto_nuevo is not None:
+            txn.monto = abs(float(monto_nuevo))
+        if desc_nueva:
+            txn.descripcion = desc_nueva
+            
+        db.commit()
+        return {"reply": reply, "saved": True, "action": "update_transaccion"}
+    except Exception as e:
+        db.rollback()
+        return {"reply": "❌ Ocurrió un error al intentar editar la transacción.", "saved": False}
+
+def _process_cuenta(parsed, db, user, reply):
+    data_obj = parsed.get("data", [])
+    if isinstance(data_obj, dict):
+        data_obj = [data_obj]
+    item = data_obj[0] if (isinstance(data_obj, list) and len(data_obj) > 0) else parsed
+
+    nombre = item.get("nombre", "Nueva Cuenta")
+    tipo_str = str(item.get("tipo", "EFECTIVO")).upper()
+    
+    # Validation against Enum mapping
+    valid_types = ["EFECTIVO", "CUENTA_AHORROS", "CUENTA_CORRIENTE", "TARJETA_CREDITO", "BILLETERA_DIGITAL", "OTRO"]
+    if tipo_str not in valid_types:
+        tipo_str = "CUENTA_AHORROS"
+
+    # For credit cards, limit goes to cupo_total. For others, it goes to saldo.
+    cupo_total = None
+    saldo = 0
+    if tipo_str == "TARJETA_CREDITO":
+        cupo_total = abs(float(item.get("cupo_total") or 0))
+    else:
+        saldo = abs(float(item.get("saldo") or item.get("cupo_total") or 0))
+
+    try:
+        nueva_cuenta = Cuenta(
+            usuario_id=user.id,
+            nombre=nombre,
+            tipo=tipo_str,
+            saldo=saldo,
+            cupo_total=cupo_total,
+            activa=True
+        )
+        db.add(nueva_cuenta)
+        db.commit()
+        return {"reply": reply, "saved": True, "action": "cuenta"}
+    except Exception as e:
+        db.rollback()
+        return {"reply": "❌ Ocurrió un error al intentar crear la cuenta.", "saved": False}

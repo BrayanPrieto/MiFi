@@ -216,6 +216,9 @@ async def parse_ia(
             )
             result = response.json()
 
+            if "error" in result:
+                return {"reply": f"⚠️ Error en IA: {result['error']}", "saved": False}
+
             try:
                 parsed = json.loads(result.get("response", "{}"))
             except json.JSONDecodeError:

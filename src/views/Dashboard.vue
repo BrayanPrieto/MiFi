@@ -24,23 +24,11 @@
             </div>
           </div>
 
-          <!-- Mode selector -->
-          <div class="flex flex-wrap gap-1.5 mb-3">
-            <button
-              v-for="m in modes" :key="m.value"
-              @click="selectedMode = m.value"
-              class="px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer"
-              :class="selectedMode === m.value
-                ? 'bg-mifi-cyan text-white border-mifi-cyan'
-                : 'bg-white text-mifi-navy/60 border-mifi-navy/10 hover:border-mifi-cyan/40'"
-            >{{ m.icon }} {{ m.label }}</button>
-          </div>
-
           <!-- Chat container -->
           <div ref="chatContainer" class="flex-1 bg-white/50 rounded-xl p-3 mb-3 min-h-[220px] max-h-[340px] overflow-y-auto border border-white/60">
             <div v-if="chatMessages.length === 0" class="flex flex-col items-center justify-center h-full text-mifi-navy/30 py-8 text-center">
               <i class="pi pi-sparkles text-2xl mb-2"></i>
-              <p class="text-xs m-0">{{ modePlaceholder }}</p>
+              <p class="text-xs m-0">¿En qué te ayudo hoy con tus finanzas?</p>
             </div>
             <div v-for="(msg, idx) in chatMessages" :key="idx" class="mb-2">
               <div :class="msg.role === 'user' ? 'text-right' : 'text-left'">
@@ -58,7 +46,7 @@
           </div>
 
           <div class="flex gap-2">
-            <InputText v-model="aiPrompt" :placeholder="modePlaceholder" class="flex-1 text-sm" @keyup.enter="sendAiMessage" />
+            <InputText v-model="aiPrompt" placeholder="Ej. Pagué 50k de gasolina..." class="flex-1 text-sm" @keyup.enter="sendAiMessage" />
             <Button
               :icon="isListening ? 'pi pi-stop' : 'pi pi-microphone'"
               @click="toggleVoice"
@@ -96,13 +84,8 @@
         <div class="glass-card p-4">
           <h4 class="text-xs font-bold text-mifi-navy/60 m-0 mb-3">DESGLOSE DE GASTOS</h4>
           <div class="flex items-center gap-5">
-            <!-- CSS Pie Chart -->
-            <div class="relative w-28 h-28 rounded-full flex-shrink-0" :style="{ background: pieGradient }">
-              <div class="absolute inset-3 rounded-full bg-white/90 flex items-center justify-center flex-col">
-                <span class="text-xs text-mifi-navy/50">Total</span>
-                <span class="text-sm font-bold text-mifi-navy">${{ fmt(data.total_gastos) }}</span>
-              </div>
-            </div>
+            <!-- Real ChartJS Doughnut -->
+            <Chart type="doughnut" :data="chartData" :options="chartOptions" class="w-32 h-32 flex-shrink-0" />
             <!-- Legend -->
             <div class="flex-1 space-y-2">
               <div>
@@ -202,50 +185,46 @@ import { ref, computed, onMounted, nextTick } from 'vue';
 import { apiClient } from '../api/client';
 import InputText from 'primevue/inputtext';
 import Button from 'primevue/button';
+import Chart from 'primevue/chart';
 
 const data = ref<any>({
   ingresos: 0, gastos_fijos: 0, gastos_variables: 0, cuotas_prestamo: 0,
   ahorros: 0, total_gastos: 0, balance: 0, tarjetas: [], recurrentes: [], cuentas: [],
 });
 
-const modes = [
-  { value: 'general', label: 'General', icon: '💬' },
-  { value: 'transaccion', label: 'Transacción', icon: '💰' },
-  { value: 'recurrente', label: 'Recurrente', icon: '🔄' },
-  { value: 'prestamo', label: 'Préstamo', icon: '🏦' },
-  { value: 'meta', label: 'Meta', icon: '🎯' },
-  { value: 'categoria', label: 'Categoría', icon: '📁' },
-];
-
-const modePlaceholders: Record<string, string> = {
-  general: '¿Cuánto me queda este mes? · ¿Ya pagué el arriendo?',
-  transaccion: 'Pagué 50k gasolina · Me llegó la nómina',
-  recurrente: 'Netflix $50k cada mes · Mi arriendo son 2 millones',
-  prestamo: 'Debo 9.5M en Nu, cuota 1.5M · Avance de tarjeta 500k',
-  meta: 'Quiero ahorrar 10M para una moto · Viaje a Europa $8M',
-  categoria: 'Categoría "Suscripciones" · "Comida mascotas"',
-};
-
-const selectedMode = ref('general');
+const selectedMode = ref('unificado');
 const chatMessages = ref<{ role: string; content: string; saved?: boolean }[]>([]);
 const aiPrompt = ref('');
 const aiLoading = ref(false);
 const chatContainer = ref<HTMLElement | null>(null);
-
-const modePlaceholder = computed(() => modePlaceholders[selectedMode.value] || '');
 const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const mesLabel = meses[new Date().getMonth()] + ' ' + new Date().getFullYear();
 
 const fmt = (n: number) => Number(n || 0).toLocaleString('es-CO');
 const barPct = (part: number, total: number) => total > 0 ? Math.min(100, Math.round((part / total) * 100)) : 0;
 
-const pieGradient = computed(() => {
-  const total = data.value.total_gastos || 1;
-  const p1 = (data.value.gastos_fijos / total) * 100;
-  const p2 = p1 + (data.value.gastos_variables / total) * 100;
-  if (total <= 0) return 'conic-gradient(#e2e8f0 0% 100%)';
-  return `conic-gradient(#ef4444 0% ${p1}%, #f97316 ${p1}% ${p2}%, #a855f7 ${p2}% 100%)`;
+const chartData = computed(() => {
+  return {
+    labels: ['Fijos', 'Variables', 'Préstamos'],
+    datasets: [
+      {
+        data: [data.value.gastos_fijos, data.value.gastos_variables, data.value.cuotas_prestamo],
+        backgroundColor: ['#ef4444', '#f97316', '#a855f7'],
+        hoverBackgroundColor: ['#b91c1c', '#c2410c', '#7e22ce'],
+        borderWidth: 0
+      }
+    ]
+  };
 });
+
+const chartOptions = {
+  plugins: {
+    legend: {
+      display: false
+    }
+  },
+  cutout: '70%',
+};
 
 const loadData = async () => {
   try { data.value = (await apiClient.get('/dashboard/resumen-mensual')).data; } catch { /* empty */ }
