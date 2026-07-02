@@ -1,8 +1,12 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/auth';
 
+// En dev (pnpm dev) el backend corre en localhost:8000; en Docker, nginx proxyea /api al backend
+const baseURL = import.meta.env.VITE_API_URL
+    || (import.meta.env.DEV ? 'http://localhost:8000/api/v1' : '/api/v1');
+
 export const apiClient = axios.create({
-    baseURL: 'http://localhost:8000/api/v1',
+    baseURL,
     headers: {
         'Content-Type': 'application/json',
     },
