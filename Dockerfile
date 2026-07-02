@@ -1,19 +1,22 @@
 # Build stage
-FROM node:20-alpine as build-stage
+FROM node:22-alpine as build-stage
 
 WORKDIR /app
 
-# Copiar archivos de dependencias
-COPY package*.json ./
+# Habilitar pnpm vía corepack (incluido en Node)
+RUN corepack enable
 
-# Instalar dependencias
-RUN npm install
+# Copiar archivos de dependencias (incluye pnpm-workspace.yaml con la config de builds)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# Instalar dependencias (lockfile inmutable para builds reproducibles)
+RUN pnpm install --frozen-lockfile
 
 # Copiar el resto del código del frontend
 COPY . .
 
 # Construir la aplicación web estática
-RUN npm run build
+RUN pnpm build
 
 # Production stage (Servir con Nginx + HTTPS)
 FROM nginx:stable-alpine as production-stage

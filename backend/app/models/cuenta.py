@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Numeric, Boolean, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, String, Numeric, Boolean, DateTime, ForeignKey, Enum, SmallInteger
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.db.base_class import Base
@@ -21,6 +21,10 @@ class Cuenta(Base):
     tipo = Column(Enum(TipoCuenta), nullable=False, default=TipoCuenta.CUENTA_AHORROS)
     saldo = Column(Numeric(15, 2), nullable=False, default=0.00)
     cupo_total = Column(Numeric(15, 2), nullable=True)  # Solo para tarjetas de crédito
+    # Deuda de tarjeta atacable por la bola de nieve
+    cuota_mensual = Column(Numeric(15, 2), nullable=True)
+    es_objetivo = Column(Boolean, nullable=False, default=False)
+    prioridad = Column(SmallInteger, nullable=True)
     color = Column(String(7), nullable=True)
     icono = Column(String(50), nullable=True)
     es_principal = Column(Boolean, nullable=False, default=False)

@@ -18,8 +18,8 @@ def _get_fernet() -> Fernet:
     if not _KEY:
         # Dev fallback: generate and warn
         _KEY = Fernet.generate_key().decode()
-        print(f"⚠️ ENCRYPTION_KEY no configurada. Usando clave temporal: {_KEY}")
-        print("⚠️ Configura ENCRYPTION_KEY en docker-compose.yml para producción!")
+        print(f"ENCRYPTION_KEY no configurada. Usando clave temporal: {_KEY}")
+        print("Configura ENCRYPTION_KEY en docker-compose.yml para producción!")
     return Fernet(_KEY.encode() if isinstance(_KEY, str) else _KEY)
 
 

@@ -1,0 +1,22 @@
+# Dependencias e instalables (se instalan dentro del contenedor)
+node_modules
+**/node_modules
+
+# Artefactos de build
+dist
+src-tauri/target
+
+# Control de versiones y editor
+.git
+.gitignore
+.vscode
+
+# Logs y temporales
+*.log
+.DS_Store
+.playwright-mcp
+
+# Backend Python local
+backend/__pycache__
+**/__pycache__
+backend/.venv

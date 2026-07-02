@@ -1,13 +1,17 @@
 <template>
   <div class="space-y-5">
     <!-- Header -->
-    <div class="flex items-center justify-between">
+    <div class="flex items-end justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-mifi-navy m-0">Dashboard</h1>
+        <span class="eyebrow">Proyecto Espartano</span>
+        <h1 class="text-3xl font-bold font-display tracking-tight text-mifi-navy m-0 mt-2">Dashboard</h1>
         <p class="text-sm text-mifi-navy/50 mt-1">Resumen de tus finanzas — {{ mesLabel }}</p>
       </div>
-      <div class="text-sm text-mifi-navy/40">{{ new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}</div>
+      <div class="text-sm text-mifi-navy/40 capitalize">{{ new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}</div>
     </div>
+
+    <!-- Banda táctica del ciclo quincenal (Proyecto Espartano) -->
+    <CicloTactico ref="cicloRef" />
 
     <!-- Main layout: Chat LEFT + Métricas RIGHT -->
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -35,7 +39,7 @@
                 <span class="inline-block px-3 py-2 rounded-xl text-sm max-w-[90%]" :class="msg.role === 'user' ? 'bg-mifi-cyan text-white' : 'bg-white border border-mifi-navy/10 text-mifi-navy'">
                   {{ msg.content }}
                 </span>
-                <span v-if="msg.saved" class="block text-xs text-mifi-green mt-0.5">💾 Registrado</span>
+                <span v-if="msg.saved" class="inline-flex items-center gap-1 text-xs text-mifi-green mt-0.5"><i class="pi pi-check-circle text-[10px]"></i> Registrado</span>
               </div>
             </div>
             <div v-if="aiLoading" class="text-left">
@@ -80,25 +84,29 @@
           </div>
         </div>
 
-        <!-- Desglose gastos: Pie + Leyenda -->
-        <div class="glass-card p-4">
-          <h4 class="text-xs font-bold text-mifi-navy/60 m-0 mb-3">DESGLOSE DE GASTOS</h4>
-          <div class="flex items-center gap-5">
-            <!-- Real ChartJS Doughnut -->
-            <Chart type="doughnut" :data="chartData" :options="chartOptions" class="w-32 h-32 flex-shrink-0" />
-            <!-- Legend -->
-            <div class="flex-1 space-y-2">
-              <div>
-                <div class="flex justify-between text-xs mb-0.5"><span class="text-mifi-navy/60">🔴 Fijos</span><span class="font-bold text-mifi-red">${{ fmt(data.gastos_fijos) }}</span></div>
-                <div class="h-1.5 bg-mifi-navy/5 rounded-full overflow-hidden"><div class="h-full bg-mifi-red rounded-full" :style="{ width: barPct(data.gastos_fijos, data.total_gastos) + '%' }"></div></div>
+        <!-- Desglose gastos: Donut + Leyenda -->
+        <div class="glass-card p-5">
+          <span class="eyebrow">Desglose de gastos</span>
+          <div class="flex items-center gap-5 mt-3">
+            <!-- Donut ApexCharts con total al centro, o estado vacío -->
+            <div class="w-32 h-32 flex-shrink-0 flex items-center justify-center">
+              <apexchart v-if="data.total_gastos > 0" type="donut" width="128" height="128" :options="donutOptions" :series="donutSeries" />
+              <div v-else class="w-24 h-24 rounded-full border-[6px] border-mifi-navy/5 flex items-center justify-center text-center">
+                <span class="text-[10px] text-mifi-navy/30 px-2">Sin gastos aún</span>
               </div>
-              <div>
-                <div class="flex justify-between text-xs mb-0.5"><span class="text-mifi-navy/60">🟠 Variables</span><span class="font-bold text-orange-500">${{ fmt(data.gastos_variables) }}</span></div>
-                <div class="h-1.5 bg-mifi-navy/5 rounded-full overflow-hidden"><div class="h-full bg-orange-500 rounded-full" :style="{ width: barPct(data.gastos_variables, data.total_gastos) + '%' }"></div></div>
-              </div>
-              <div>
-                <div class="flex justify-between text-xs mb-0.5"><span class="text-mifi-navy/60">🟣 Préstamos</span><span class="font-bold text-purple-500">${{ fmt(data.cuotas_prestamo) }}</span></div>
-                <div class="h-1.5 bg-mifi-navy/5 rounded-full overflow-hidden"><div class="h-full bg-purple-500 rounded-full" :style="{ width: barPct(data.cuotas_prestamo, data.total_gastos) + '%' }"></div></div>
+            </div>
+            <!-- Leyenda -->
+            <div class="flex-1 space-y-2.5">
+              <div v-for="item in desglose" :key="item.label">
+                <div class="flex justify-between items-center text-xs mb-1">
+                  <span class="flex items-center gap-2 text-mifi-navy/60">
+                    <span class="w-2 h-2 rounded-full" :style="{ background: item.color }"></span>{{ item.label }}
+                  </span>
+                  <span class="font-bold tnum" :style="{ color: item.color }">${{ fmt(item.value) }}</span>
+                </div>
+                <div class="h-1.5 bg-mifi-navy/5 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full transition-all duration-700 ease-soft" :style="{ width: barPct(item.value, data.total_gastos) + '%', background: item.color }"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -185,7 +193,10 @@ import { ref, computed, onMounted, nextTick } from 'vue';
 import { apiClient } from '../api/client';
 import InputText from 'primevue/inputtext';
 import Button from 'primevue/button';
-import Chart from 'primevue/chart';
+import apexchart from 'vue3-apexcharts';
+import CicloTactico from '../components/CicloTactico.vue';
+
+const cicloRef = ref<any>(null);
 
 const data = ref<any>({
   ingresos: 0, gastos_fijos: 0, gastos_variables: 0, cuotas_prestamo: 0,
@@ -203,28 +214,41 @@ const mesLabel = meses[new Date().getMonth()] + ' ' + new Date().getFullYear();
 const fmt = (n: number) => Number(n || 0).toLocaleString('es-CO');
 const barPct = (part: number, total: number) => total > 0 ? Math.min(100, Math.round((part / total) * 100)) : 0;
 
-const chartData = computed(() => {
-  return {
-    labels: ['Fijos', 'Variables', 'Préstamos'],
-    datasets: [
-      {
-        data: [data.value.gastos_fijos, data.value.gastos_variables, data.value.cuotas_prestamo],
-        backgroundColor: ['#ef4444', '#f97316', '#a855f7'],
-        hoverBackgroundColor: ['#b91c1c', '#c2410c', '#7e22ce'],
-        borderWidth: 0
-      }
-    ]
-  };
-});
-
-const chartOptions = {
-  plugins: {
-    legend: {
-      display: false
-    }
+// Desglose de gastos (colores cohesivos con la paleta)
+const COLORS = { fijos: '#EF4444', variables: '#F59E0B', prestamos: '#8B5CF6' };
+const desglose = computed(() => [
+  { label: 'Fijos', value: data.value.gastos_fijos, color: COLORS.fijos },
+  { label: 'Variables', value: data.value.gastos_variables, color: COLORS.variables },
+  { label: 'Préstamos', value: data.value.cuotas_prestamo, color: COLORS.prestamos },
+]);
+const donutSeries = computed(() => [
+  data.value.gastos_fijos || 0, data.value.gastos_variables || 0, data.value.cuotas_prestamo || 0,
+]);
+const donutOptions = computed(() => ({
+  chart: { sparkline: { enabled: true }, animations: { easing: 'easeinout', speed: 600 } },
+  labels: ['Fijos', 'Variables', 'Préstamos'],
+  colors: [COLORS.fijos, COLORS.variables, COLORS.prestamos],
+  stroke: { width: 0 },
+  fill: { type: 'gradient', gradient: { shadeIntensity: 0.4, opacityFrom: 1, opacityTo: 0.85 } },
+  legend: { show: false },
+  dataLabels: { enabled: false },
+  tooltip: { y: { formatter: (v: number) => '$' + Number(v).toLocaleString('es-CO') } },
+  plotOptions: {
+    pie: {
+      donut: {
+        size: '72%',
+        labels: {
+          show: true,
+          total: {
+            show: true, label: 'Gastos', color: '#94a3b8', fontSize: '10px', fontFamily: 'Plus Jakarta Sans',
+            formatter: () => '$' + Number(data.value.total_gastos || 0).toLocaleString('es-CO'),
+          },
+          value: { fontFamily: 'Space Grotesk', fontSize: '13px', color: '#0F172A' },
+        },
+      },
+    },
   },
-  cutout: '70%',
-};
+}));
 
 const loadData = async () => {
   try { data.value = (await apiClient.get('/dashboard/resumen-mensual')).data; } catch { /* empty */ }
@@ -250,9 +274,9 @@ const sendAiMessage = async () => {
       history,
     });
     chatMessages.value.push({ role: 'assistant', content: res.data.reply || 'Respuesta recibida.', saved: res.data.saved || false });
-    if (res.data.saved) await loadData();
+    if (res.data.saved) { await loadData(); cicloRef.value?.reload(); }
   } catch {
-    chatMessages.value.push({ role: 'assistant', content: '⚠️ No pude conectar con la IA.' });
+    chatMessages.value.push({ role: 'assistant', content: 'No pude conectar con la IA.' });
   } finally {
     aiLoading.value = false;
     scrollChat();
@@ -290,7 +314,7 @@ const toggleVoice = async () => {
       formData.append('audio', audioBlob, 'recording.webm');
 
       try {
-        chatMessages.value.push({ role: 'assistant', content: '🎤 Transcribiendo audio...' });
+        chatMessages.value.push({ role: 'assistant', content: 'Transcribiendo audio...' });
         scrollChat();
         const res = await apiClient.post('/ia/transcribe', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -303,7 +327,7 @@ const toggleVoice = async () => {
         }
       } catch {
         chatMessages.value.pop();
-        chatMessages.value.push({ role: 'assistant', content: '⚠️ Error al transcribir. Intenta de nuevo.' });
+        chatMessages.value.push({ role: 'assistant', content: 'Error al transcribir. Intenta de nuevo.' });
         scrollChat();
       }
     };
@@ -311,7 +335,7 @@ const toggleVoice = async () => {
     mediaRecorder.start();
     isListening.value = true;
   } catch (err) {
-    chatMessages.value.push({ role: 'assistant', content: '⚠️ No se pudo acceder al micrófono. Verifica permisos.' });
+    chatMessages.value.push({ role: 'assistant', content: 'No se pudo acceder al micrófono. Verifica permisos.' });
     scrollChat();
   }
 };

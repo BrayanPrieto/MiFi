@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Numeric, DateTime, ForeignKey, Enum, SmallInteger, Text, Date
+from sqlalchemy import Column, String, Numeric, DateTime, ForeignKey, Enum, SmallInteger, Text, Date, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.db.base_class import Base
@@ -27,6 +27,9 @@ class Prestamo(Base):
     tasa_interes_mensual = Column(Numeric(6, 4), nullable=True)
     dia_pago = Column(SmallInteger, nullable=True)
     estado = Column(Enum(EstadoPrestamo), nullable=False, default=EstadoPrestamo.ACTIVO)
+    # Bola de nieve: deuda objetivo actual y orden de ataque
+    es_objetivo = Column(Boolean, nullable=False, default=False)
+    prioridad = Column(SmallInteger, nullable=True)
     fecha_inicio = Column(Date, server_default=func.current_date(), nullable=False)
     fecha_fin_esperada = Column(Date, nullable=True)
 

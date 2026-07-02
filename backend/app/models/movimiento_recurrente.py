@@ -12,6 +12,8 @@ class MovimientoRecurrente(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     usuario_id = Column(UUID(as_uuid=True), ForeignKey('usuarios.id', ondelete="CASCADE"), nullable=False)
     cuenta_id = Column(UUID(as_uuid=True), ForeignKey('cuentas.id'), nullable=False)
+    # Tarjeta cuya deuda paga este recurrente (cuota) — se vincula por nombre
+    cuenta_destino_id = Column(UUID(as_uuid=True), ForeignKey('cuentas.id', ondelete="SET NULL"), nullable=True)
     nombre = Column(EncryptedString(), nullable=False)
     tipo = Column(String(20), nullable=False)  # INGRESO, GASTO_FIJO, GASTO_VARIABLE, etc.
     monto = Column(Numeric(15, 2), nullable=False)

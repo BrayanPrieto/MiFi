@@ -15,6 +15,7 @@ class CuentaBase(BaseModel):
 class CuentaCreate(CuentaBase):
     saldo_inicial: Decimal = Decimal('0.00')
     cupo_total: Optional[Decimal] = None
+    cuota_mensual: Optional[Decimal] = None
     es_nomina: bool = False
 
 class CuentaUpdate(BaseModel):
@@ -22,6 +23,9 @@ class CuentaUpdate(BaseModel):
     tipo: Optional[TipoCuenta] = None
     saldo: Optional[Decimal] = None
     cupo_total: Optional[Decimal] = None
+    cuota_mensual: Optional[Decimal] = None
+    es_objetivo: Optional[bool] = None
+    prioridad: Optional[int] = None
     color: Optional[str] = None
     icono: Optional[str] = None
     es_principal: Optional[bool] = None
@@ -33,6 +37,9 @@ class Cuenta(CuentaBase):
     usuario_id: UUID
     saldo: Decimal
     cupo_total: Optional[Decimal] = None
+    cuota_mensual: Optional[Decimal] = None
+    es_objetivo: bool = False
+    prioridad: Optional[int] = None
     es_nomina: bool = False
     activa: bool
     created_at: datetime

@@ -1,18 +1,17 @@
 <template>
-  <div class="h-screen w-screen flex items-center justify-center bg-mifi-bg">
-    <div class="w-full max-w-md p-6 bg-white rounded-2xl shadow-xl border border-surface-200">
-        
+  <div class="h-screen w-screen flex items-center justify-center p-6">
+    <div class="w-full max-w-md p-8 glass-strong soft-enter">
+
       <div class="text-center mb-8">
         <div class="inline-flex items-center justify-center mb-4 relative">
-            <!-- Representando la A de la flecha verde de crecimiento del logo MiFi usando formas -->
-            <div class="w-16 h-16 rounded-xl bg-mifi-navy flex items-center justify-center transform rotate-3 shadow-lg border-2 border-mifi-cyan">
-                <i class="pi pi-chart-line text-mifi-green text-3xl font-black"></i>
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-mifi-navy to-mifi-navy-light flex items-center justify-center transform rotate-3 shadow-soft-lg ring-1 ring-mifi-cyan/40">
+                <i class="pi pi-chart-line text-mifi-green text-3xl"></i>
             </div>
         </div>
-        <h1 class="text-3xl font-extrabold text-mifi-navy tracking-tight mb-1">
+        <h1 class="text-3xl font-extrabold font-display text-mifi-navy tracking-tight mb-1">
             M<span class="text-mifi-cyan">i</span>F<span class="text-mifi-green">i</span>
         </h1>
-        <p class="text-sm font-medium text-surface-500 mt-2">Crea tu cuenta gratis</p>
+        <p class="eyebrow mt-2">Crea tu cuenta</p>
       </div>
 
       <Message v-if="errorMsg" severity="error" :closable="false" class="mb-4">{{ errorMsg }}</Message>

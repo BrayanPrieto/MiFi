@@ -41,4 +41,6 @@ docker compose down
 ```
 
 ---
-*Nota sobre Tauri:* Si en un futuro deseas compilar la aplicación de escritorio empaquetada (`.exe` o `.dmg`), todavía puedes usar la carpeta local ejecutando `npm run tauri build`, asegurándote primero de tener el entorno de **Rust** instalado nativamente en tu máquina.
+*Nota sobre Tauri:* Si en un futuro deseas compilar la aplicación de escritorio empaquetada (`.exe` o `.dmg`), todavía puedes usar la carpeta local ejecutando `pnpm tauri build`, asegurándote primero de tener el entorno de **Rust** instalado nativamente en tu máquina.
+
+*Gestor de paquetes:* Este proyecto usa **pnpm** (activable con `corepack enable`). Para trabajo local del frontend: `pnpm install` y `pnpm dev`.

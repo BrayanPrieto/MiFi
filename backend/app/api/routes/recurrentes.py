@@ -7,6 +7,8 @@ from datetime import date
 from app.api import deps
 from app.models.movimiento_recurrente import MovimientoRecurrente
 from app.models.transaccion import Transaccion
+from app.models.cuenta import Cuenta
+from app.modules.ia.service import match_tarjeta
 from app.schemas.movimiento_recurrente import RecurrenteCreate, RecurrenteUpdate, Recurrente as RecurrenteSchema
 
 router = APIRouter()
@@ -30,9 +32,14 @@ def create_recurrente(
     current_user=Depends(deps.get_current_user),
     data: RecurrenteCreate,
 ) -> Any:
+    cuentas = db.query(Cuenta).filter(
+        Cuenta.usuario_id == current_user.id, Cuenta.activa == True,
+    ).all()
+    tarjeta = match_tarjeta(cuentas, data.nombre)  # cuota de tarjeta -> vincular
     obj = MovimientoRecurrente(
         usuario_id=current_user.id,
         cuenta_id=data.cuenta_id,
+        cuenta_destino_id=tarjeta.id if tarjeta else None,
         nombre=data.nombre,
         tipo=data.tipo,
         monto=data.monto,

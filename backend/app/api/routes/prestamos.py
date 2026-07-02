@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.models.prestamo import Prestamo
 from app.models.movimiento_recurrente import MovimientoRecurrente
-from app.schemas.prestamo import PrestamoCreate, Prestamo as PrestamoSchema
+from app.schemas.prestamo import PrestamoCreate, PrestamoUpdate, Prestamo as PrestamoSchema
 
 router = APIRouter()
 
@@ -53,6 +53,33 @@ def create_prestamo(
         db.commit()
 
     return obj
+
+@router.patch("/{prestamo_id}", response_model=PrestamoSchema)
+def update_prestamo(
+    prestamo_id: str,
+    data: PrestamoUpdate,
+    db: Session = Depends(deps.get_db),
+    current_user = Depends(deps.get_current_user),
+) -> Any:
+    obj = db.query(Prestamo).filter(Prestamo.id == prestamo_id, Prestamo.usuario_id == current_user.id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Préstamo no encontrado")
+    campos = data.model_dump(exclude_unset=True)
+    # Deuda objetivo única: al marcar este préstamo, desmarcar otros préstamos y todas las tarjetas
+    if campos.get("es_objetivo"):
+        from app.models.cuenta import Cuenta
+        db.query(Prestamo).filter(
+            Prestamo.usuario_id == current_user.id, Prestamo.id != obj.id
+        ).update({Prestamo.es_objetivo: False})
+        db.query(Cuenta).filter(
+            Cuenta.usuario_id == current_user.id
+        ).update({Cuenta.es_objetivo: False})
+    for field, value in campos.items():
+        setattr(obj, field, value)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
 
 @router.delete("/{prestamo_id}")
 def delete_prestamo(

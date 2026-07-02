@@ -46,6 +46,7 @@ def create_cuenta(
         tipo=cuenta_in.tipo,
         saldo=cuenta_in.saldo_inicial,
         cupo_total=cuenta_in.cupo_total,
+        cuota_mensual=cuenta_in.cuota_mensual,
         color=cuenta_in.color,
         icono=cuenta_in.icono,
         es_principal=cuenta_in.es_principal,
@@ -93,6 +94,16 @@ def update_cuenta(
             Cuenta.es_nomina == True,
             Cuenta.id != cuenta_id,
         ).update({"es_nomina": False})
+
+    # Deuda objetivo única: al marcar esta tarjeta, desmarcar otras tarjetas y todos los préstamos
+    if update_data.get("es_objetivo"):
+        from app.models.prestamo import Prestamo
+        db.query(Cuenta).filter(
+            Cuenta.usuario_id == current_user.id, Cuenta.id != cuenta_id,
+        ).update({"es_objetivo": False})
+        db.query(Prestamo).filter(
+            Prestamo.usuario_id == current_user.id,
+        ).update({"es_objetivo": False})
 
     for field, value in update_data.items():
         setattr(cuenta, field, value)

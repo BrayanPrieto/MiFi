@@ -10,6 +10,12 @@ def get_categorias(db: Session, user_id):
 
 
 def create_categoria(db: Session, user_id, nombre: str, tipo: str, color: str = None, icono: str = None):
+    # Dedup: no crear si ya existe una con el mismo nombre (normalizado) para este usuario
+    existentes = db.query(Categoria).filter(Categoria.usuario_id == user_id).all()
+    n = (nombre or "").strip().lower()
+    dup = next((c for c in existentes if (c.nombre or "").strip().lower() == n), None)
+    if dup:
+        return dup
     cat = Categoria(usuario_id=user_id, nombre=nombre, tipo=tipo, color=color, icono=icono)
     db.add(cat)
     db.commit()

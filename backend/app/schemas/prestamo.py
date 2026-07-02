@@ -19,9 +19,18 @@ class PrestamoBase(BaseModel):
 class PrestamoCreate(PrestamoBase):
     cuenta_pago_id: Optional[UUID] = None  # Cuenta desde la que se paga
 
+class PrestamoUpdate(BaseModel):
+    es_objetivo: Optional[bool] = None
+    prioridad: Optional[int] = None
+    saldo_pendiente: Optional[float] = None
+    cuota_mensual_esperada: Optional[float] = None
+    estado: Optional[str] = None
+
 class Prestamo(PrestamoBase):
     id: UUID
     usuario_id: UUID
+    es_objetivo: bool = False
+    prioridad: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 

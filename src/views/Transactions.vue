@@ -1,8 +1,9 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
+  <div class="space-y-6 soft-enter">
+    <div class="flex items-end justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-mifi-navy m-0">Transacciones</h1>
+        <span class="eyebrow">Movimientos</span>
+        <h1 class="text-3xl font-bold font-display tracking-tight text-mifi-navy m-0 mt-2">Transacciones</h1>
         <p class="text-sm text-mifi-navy/50 mt-1">Historial de ingresos y gastos</p>
       </div>
       <Button label="Nueva Transacción" icon="pi pi-plus" @click="showCreate = true" class="!bg-mifi-cyan !border-none !text-white" />

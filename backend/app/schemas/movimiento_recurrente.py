@@ -23,6 +23,7 @@ class RecurrenteUpdate(BaseModel):
 class Recurrente(RecurrenteBase):
     id: UUID
     usuario_id: UUID
+    cuenta_destino_id: Optional[UUID] = None
     activo: bool = True
     created_at: datetime
     updated_at: datetime

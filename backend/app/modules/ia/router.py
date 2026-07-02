@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api import deps
-from .service import process_ia_request
+from .service import process_ia_request, strip_emojis
 from .speech import transcribe_audio
 
 router = APIRouter()
@@ -26,13 +26,16 @@ async def parse_ia(
     valid_modes = {"general", "transaccion", "recurrente", "prestamo", "meta", "categoria"}
     mode = data.mode if data.mode in valid_modes else "general"
 
-    return await process_ia_request(
+    result = await process_ia_request(
         text=data.text,
         mode=mode,
         history=data.history,
         db=db,
         current_user=current_user,
     )
+    if isinstance(result, dict) and result.get("reply"):
+        result["reply"] = strip_emojis(result["reply"])
+    return result
 
 
 @router.post("/transcribe")

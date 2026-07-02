@@ -63,7 +63,6 @@ const navItems = [
     { label: 'Transacciones', icon: 'pi pi-arrow-right-arrow-left', route: '/transactions' },
     { label: 'Cuentas', icon: 'pi pi-wallet', route: '/accounts' },
     { label: 'Recurrentes', icon: 'pi pi-sync', route: '/recurrents' },
-    { label: 'Préstamos', icon: 'pi pi-money-bill', route: '/loans' },
     { label: 'Metas', icon: 'pi pi-flag', route: '/goals' },
     { label: 'Categorías', icon: 'pi pi-tags', route: '/categories' },
 ];

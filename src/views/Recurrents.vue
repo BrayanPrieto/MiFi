@@ -1,8 +1,9 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
+  <div class="space-y-6 soft-enter">
+    <div class="flex items-end justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-mifi-navy m-0">Movimientos Recurrentes</h1>
+        <span class="eyebrow">Ciclo mensual</span>
+        <h1 class="text-3xl font-bold font-display tracking-tight text-mifi-navy m-0 mt-2">Movimientos Recurrentes</h1>
         <p class="text-sm text-mifi-navy/50 mt-1">Salarios, gastos fijos y pagos que se repiten cada mes</p>
       </div>
       <div class="flex gap-2">
@@ -39,7 +40,12 @@
       </div>
       <div v-for="r in expenseRecurrents" :key="r.id" class="flex items-center justify-between py-3 border-b border-mifi-navy/5 last:border-0">
         <div>
-          <p class="text-sm font-medium text-mifi-navy m-0">{{ r.nombre }}</p>
+          <p class="text-sm font-medium text-mifi-navy m-0">
+            {{ r.nombre }}
+            <span v-if="r.cuenta_destino_id" class="ml-1 text-xs font-bold text-purple-500">
+              <i class="pi pi-credit-card text-[10px]"></i> baja deuda {{ cuentaNombre(r.cuenta_destino_id) }}
+            </span>
+          </p>
           <p class="text-xs text-mifi-navy/40 m-0">Día {{ r.dia_mes }} · {{ cuentaNombre(r.cuenta_id) }}</p>
         </div>
         <div class="flex items-center gap-2">
@@ -130,8 +136,9 @@ const tipoOptions = [
     { label: 'Ahorro Automático', value: 'AHORRO' },
 ];
 
-const incomeRecurrents = computed(() => recurrents.value.filter(r => r.tipo === 'INGRESO'));
-const expenseRecurrents = computed(() => recurrents.value.filter(r => r.tipo !== 'INGRESO'));
+const isIncome = (t: string) => (t || '').toUpperCase().includes('INGRESO');
+const incomeRecurrents = computed(() => recurrents.value.filter(r => isIncome(r.tipo)));
+const expenseRecurrents = computed(() => recurrents.value.filter(r => !isIncome(r.tipo)));
 const cuentaNombre = (cid: string) => cuentas.value.find(c => c.id === cid)?.nombre || '';
 
 const fetchData = async () => {

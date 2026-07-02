@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-    /* Paleta MiFi - El Escudo de Crecimiento */
+    /* Paleta MiFi — El Escudo de Crecimiento */
     --mifi-navy: #0F172A;
     --mifi-navy-light: #1E293B;
     --mifi-cyan: #06B6D4;
@@ -12,72 +12,166 @@
     --mifi-bg: #F8FAFC;
     --mifi-amber: #F59E0B;
 
-    /* Glassmorphism tokens */
-    --glass-bg: rgba(255, 255, 255, 0.72);
-    --glass-border: rgba(255, 255, 255, 0.4);
-    --glass-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
-    --glass-blur: blur(20px);
-    --glass-radius: 16px;
+    /* Superficies soft (translúcidas para que se lea el material glass) */
+    --surface-card: rgba(255, 255, 255, 0.46);
+    --surface-hairline: rgba(255, 255, 255, 0.7);
+    --radius-lg: 24px;
+    --radius-md: 16px;
+
+    /* Sombra ambiental difusa + glow interno en todo el borde (no solo arriba) */
+    --shadow-soft:
+        0 1px 2px rgba(15, 23, 42, 0.03),
+        0 10px 30px rgba(15, 23, 42, 0.06),
+        inset 0 1px 1px rgba(255, 255, 255, 0.7),
+        inset 0 0 20px rgba(255, 255, 255, 0.25);
+    --shadow-soft-lg:
+        0 2px 4px rgba(15, 23, 42, 0.04),
+        0 22px 55px rgba(15, 23, 42, 0.1),
+        inset 0 1px 1px rgba(255, 255, 255, 0.8),
+        inset 0 0 24px rgba(255, 255, 255, 0.3);
+
+    /* Easing físico (spring-like) */
+    --ease-soft: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* Custom Reset */
+/* Reset + tipografía premium */
 html,
 body {
     margin: 0;
     padding: 0;
-    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-    background: linear-gradient(135deg, #EFF6FF 0%, #F8FAFC 40%, #ECFDF5 100%);
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     color: var(--mifi-navy);
+    background: linear-gradient(135deg, #EFF6FF 0%, #F8FAFC 45%, #ECFDF5 100%);
     height: 100vh;
     width: 100vw;
     overflow: hidden;
+}
+
+/* Orbes de luz ambiental (profundidad soft, seguros en performance: fixed) */
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+}
+
+body::before {
+    width: 42vw;
+    height: 42vw;
+    top: -12vw;
+    right: -8vw;
+    background: radial-gradient(circle, rgba(6, 182, 212, 0.18), transparent 70%);
+}
+
+body::after {
+    width: 38vw;
+    height: 38vw;
+    bottom: -14vw;
+    left: -6vw;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.16), transparent 70%);
 }
 
 #app {
+    position: relative;
+    z-index: 1;
     height: 100vh;
     width: 100vw;
     overflow: hidden;
 }
 
-/* Glassmorphism utility classes */
+/* Números tabulares para cifras financieras */
+.tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
+/* Fuente display para cifras grandes */
+.font-display {
+    font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.02em;
+}
+
+/* Eyebrow tag (píldora microscópica sobre títulos) */
+.eyebrow {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mifi-cyan);
+    background: rgba(6, 182, 212, 0.1);
+}
+
+/* Vibrancy compartida (Liquid Glass): blur fuerte + saturación real */
+.glass,
+.glass-strong,
+.glass-card {
+    backdrop-filter: blur(28px) saturate(185%);
+    -webkit-backdrop-filter: blur(28px) saturate(185%);
+}
+
 .glass {
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
-    border-radius: var(--glass-radius);
+    background: var(--surface-card);
+    border: 1px solid var(--surface-hairline);
+    box-shadow: var(--shadow-soft);
+    border-radius: var(--radius-md);
 }
 
 .glass-strong {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(30px);
-    -webkit-backdrop-filter: blur(30px);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
-    border-radius: var(--glass-radius);
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    box-shadow: var(--shadow-soft-lg);
+    border-radius: var(--radius-lg);
 }
 
+/* Tarjeta Liquid Glass: material translúcido + borde especular con degradado */
 .glass-card {
-    background: rgba(255, 255, 255, 0.65);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
-    border-radius: 14px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    background: var(--surface-card);
+    border: 1px solid transparent;
+    box-shadow: var(--shadow-soft);
+    border-radius: var(--radius-lg);
+    transition: transform 0.5s var(--ease-soft), box-shadow 0.5s var(--ease-soft);
+}
+
+/* Borde especular: rim de vidrio que brilla arriba y abajo (refracción real) */
+.glass-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.25) 50%, rgba(255, 255, 255, 0.6));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    transition: background 0.5s var(--ease-soft);
 }
 
 .glass-card:hover {
-    box-shadow: 0 8px 40px rgba(6, 182, 212, 0.12);
-    transform: translateY(-2px);
-    border-color: rgba(6, 182, 212, 0.3);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-soft-lg);
 }
 
-/* Scrollbar styling */
+.glass-card:hover::before {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(6, 182, 212, 0.25) 45%, rgba(16, 185, 129, 0.12));
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -85,54 +179,61 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(15, 23, 42, 0.15);
-    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.12);
+    border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(15, 23, 42, 0.25);
+    background: rgba(15, 23, 42, 0.22);
 }
 
-/* PrimeVue overrides for glass look */
+/* PrimeVue — inputs y botones soft/pill */
 .p-inputtext {
     background: rgba(255, 255, 255, 0.7) !important;
-    border-color: rgba(15, 23, 42, 0.1) !important;
+    border-color: rgba(15, 23, 42, 0.08) !important;
     color: var(--mifi-navy) !important;
-    border-radius: 10px !important;
-    transition: all 0.2s ease !important;
+    border-radius: 12px !important;
+    transition: all 0.3s var(--ease-soft) !important;
 }
 
 .p-inputtext:focus {
     border-color: var(--mifi-cyan) !important;
-    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15) !important;
+    box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.12) !important;
 }
 
 .p-button {
-    border-radius: 10px !important;
+    border-radius: 9999px !important;
     font-weight: 600 !important;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: transform 0.3s var(--ease-soft), box-shadow 0.3s var(--ease-soft), background 0.3s var(--ease-soft) !important;
+}
+
+.p-button:active {
+    transform: scale(0.97) !important;
 }
 
 .p-datatable .p-datatable-thead>tr>th {
-    background: rgba(255, 255, 255, 0.5) !important;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+    background: rgba(255, 255, 255, 0.45) !important;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06) !important;
     color: var(--mifi-navy) !important;
     font-weight: 600 !important;
 }
 
 .p-datatable .p-datatable-tbody>tr {
     background: transparent !important;
-    transition: all 0.15s ease !important;
+    transition: background 0.2s var(--ease-soft) !important;
 }
 
 .p-datatable .p-datatable-tbody>tr:hover {
     background: rgba(6, 182, 212, 0.04) !important;
 }
 
-/* Smooth page transitions */
-.fade-slide-enter-active,
+/* Transición de página rápida (sin blur para evitar repaints costosos) */
+.fade-slide-enter-active {
+    transition: opacity 0.2s var(--ease-soft), transform 0.2s var(--ease-soft);
+}
+
 .fade-slide-leave-active {
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
 .fade-slide-enter-from {
@@ -142,5 +243,21 @@ body {
 
 .fade-slide-leave-to {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-4px);
+}
+
+/* Entrada soft al montar (fade-up ligero, sin blur) */
+@keyframes soft-enter {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.soft-enter {
+    animation: soft-enter 0.35s var(--ease-soft) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .soft-enter,
+    .fade-slide-enter-active,
+    .fade-slide-leave-active { animation: none; transition: none; }
 }

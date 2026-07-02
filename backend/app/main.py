@@ -37,6 +37,17 @@ def on_startup():
         ("prestamos", "descripcion"),
         ("metas_ahorro", "nombre"),
     ]
+    # Columnas nuevas (V2): agregar si no existen, sin romper datos existentes
+    add_columns = [
+        ("prestamos", "es_objetivo", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("prestamos", "prioridad", "SMALLINT"),
+        ("recibos", "es_ahorro", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("cuentas", "cuota_mensual", "NUMERIC(15,2)"),
+        ("cuentas", "es_objetivo", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("cuentas", "prioridad", "SMALLINT"),
+        ("movimientos_recurrentes", "cuenta_destino_id", "UUID REFERENCES cuentas(id) ON DELETE SET NULL"),
+        ("configuraciones_ciclo", "dia_ahorro", "SMALLINT NOT NULL DEFAULT 17"),
+    ]
     with engine.connect() as conn:
         for table, col in encrypted_columns:
             try:
@@ -44,7 +55,13 @@ def on_startup():
                 conn.commit()
             except Exception:
                 conn.rollback()  # Column might already be TEXT
-    print("✅ Columnas encriptadas migradas a TEXT")
+        for table, col, coldef in add_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {coldef}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+    print("Migraciones de columnas aplicadas")
 
 # Manejador global de errores para que CORS no se pierda en errores 500
 @app.exception_handler(Exception)

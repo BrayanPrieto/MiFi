@@ -1,8 +1,9 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
+  <div class="space-y-6 soft-enter">
+    <div class="flex items-end justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-mifi-navy m-0">Metas de Ahorro</h1>
+        <span class="eyebrow">Ahorro</span>
+        <h1 class="text-3xl font-bold font-display tracking-tight text-mifi-navy m-0 mt-2">Metas de Ahorro</h1>
         <p class="text-sm text-mifi-navy/50 mt-1">Sigue tu progreso hacia tus objetivos financieros</p>
       </div>
       <Button label="Nueva Meta" icon="pi pi-plus" @click="showCreate = true" class="!bg-mifi-cyan !border-none !text-white" />
