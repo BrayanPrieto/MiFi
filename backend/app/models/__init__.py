@@ -8,3 +8,4 @@ from .movimiento_recurrente import MovimientoRecurrente
 from .configuracion_ciclo import ConfiguracionCiclo
 from .recibo import Recibo, EstadoRecibo
 from .evento_futuro import EventoFuturo
+from .conexion_gmail import ConexionGmail

@@ -6,7 +6,27 @@
         <h1 class="text-3xl font-bold font-display tracking-tight text-mifi-navy m-0 mt-2">Transacciones</h1>
         <p class="text-sm text-mifi-navy/50 mt-1">Historial de ingresos y gastos</p>
       </div>
-      <Button label="Nueva Transacción" icon="pi pi-plus" @click="showCreate = true" class="!bg-mifi-cyan !border-none !text-white" />
+      <div class="flex items-center gap-2">
+        <Button
+          v-if="!gmail.conectado"
+          label="Conectar Gmail"
+          icon="pi pi-envelope"
+          outlined
+          @click="conectarGmail"
+        />
+        <template v-else>
+          <Button
+            :label="gmailSyncing ? 'Sincronizando…' : 'Sync Gmail'"
+            icon="pi pi-refresh"
+            outlined
+            :loading="gmailSyncing"
+            @click="syncGmail"
+            :title="`Conectado: ${gmail.email}`"
+          />
+          <Button icon="pi pi-times" text rounded severity="secondary" title="Desconectar Gmail" @click="desconectarGmail" />
+        </template>
+        <Button label="Nueva Transacción" icon="pi pi-plus" @click="showCreate = true" class="!bg-mifi-cyan !border-none !text-white" />
+      </div>
     </div>
 
     <!-- Filters -->
@@ -258,5 +278,54 @@ const deleteTransaction = async () => {
     } catch { /* empty */ }
 };
 
-onMounted(fetchData);
+// --- Integración Gmail ---
+const gmail = ref<{ configurado: boolean; conectado: boolean; email: string | null }>({ configurado: false, conectado: false, email: null });
+const gmailSyncing = ref(false);
+
+const fetchGmailEstado = async () => {
+    try { gmail.value = (await apiClient.get('/gmail/estado')).data; } catch { /* empty */ }
+};
+
+const conectarGmail = async () => {
+    try {
+        const { data } = await apiClient.get('/gmail/conectar');
+        window.open(data.auth_url, '_blank');
+        // Esperar a que el usuario complete el consentimiento en la otra pestaña
+        const inicio = Date.now();
+        const timer = setInterval(async () => {
+            await fetchGmailEstado();
+            if (gmail.value.conectado) {
+                clearInterval(timer);
+                await syncGmail();
+            } else if (Date.now() - inicio > 120000) {
+                clearInterval(timer);
+            }
+        }, 3000);
+    } catch (e: any) {
+        alert(e?.response?.data?.detail || 'No se pudo iniciar la conexión con Gmail');
+    }
+};
+
+const syncGmail = async () => {
+    gmailSyncing.value = true;
+    try {
+        const { data } = await apiClient.post('/gmail/sync');
+        alert(`Gmail: ${data.creados} transacciones nuevas (${data.revisados} correos revisados)`);
+        await fetchData();
+    } catch (e: any) {
+        alert(e?.response?.data?.detail || 'Error sincronizando Gmail');
+    } finally {
+        gmailSyncing.value = false;
+    }
+};
+
+const desconectarGmail = async () => {
+    if (!confirm(`¿Desconectar Gmail (${gmail.value.email})?`)) return;
+    try {
+        await apiClient.delete('/gmail/');
+        await fetchGmailEstado();
+    } catch { /* empty */ }
+};
+
+onMounted(() => { fetchData(); fetchGmailEstado(); });
 </script>

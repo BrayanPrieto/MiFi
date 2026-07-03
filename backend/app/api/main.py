@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from app.modules.ia.router import router as ia_router
 from app.modules.categorias.router import router as categorias_router
 from app.modules.ciclo.router import router as ciclo_router
+from app.modules.gmail.router import router as gmail_router
 
 # Existing routes (will be modularized gradually)
 from app.api.routes import auth, usuarios, cuentas, transacciones, prestamos, metas, recurrentes, dashboard, configuracion, eventos
@@ -22,3 +23,4 @@ api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboar
 api_router.include_router(configuracion.router, prefix="/configuracion", tags=["configuracion"])
 api_router.include_router(eventos.router, prefix="/eventos", tags=["eventos"])
 api_router.include_router(ciclo_router, prefix="/ciclo", tags=["ciclo"])
+api_router.include_router(gmail_router, prefix="/gmail", tags=["gmail"])

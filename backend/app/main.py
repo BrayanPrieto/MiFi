@@ -47,6 +47,7 @@ def on_startup():
         ("cuentas", "prioridad", "SMALLINT"),
         ("movimientos_recurrentes", "cuenta_destino_id", "UUID REFERENCES cuentas(id) ON DELETE SET NULL"),
         ("configuraciones_ciclo", "dia_ahorro", "SMALLINT NOT NULL DEFAULT 17"),
+        ("transacciones", "gmail_msg_id", "VARCHAR(32)"),
     ]
     with engine.connect() as conn:
         for table, col in encrypted_columns:

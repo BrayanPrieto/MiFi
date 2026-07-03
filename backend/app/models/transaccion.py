@@ -26,6 +26,7 @@ class Transaccion(Base):
     
     fuente_ia = Column(Boolean, nullable=False, default=False)
     texto_original = Column(EncryptedString(), nullable=True)
+    gmail_msg_id = Column(String(32), nullable=True)  # dedup de importaciones desde Gmail
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
